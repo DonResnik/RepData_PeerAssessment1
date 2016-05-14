@@ -1,25 +1,88 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research project1"
+author: "Don Resnik"
+date: "May 12, 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+##Loading and preprocessing the data
+##What is mean total number of steps taken per day?
+```{r}
+library(dplyr)
+dataValue <- read.csv("activity.csv")
+dataValueNoNA <- filter(dataValue,!is.na(dataValue$steps))
+#generate histogram of steps per day
+stepsPerDay <- aggregate(steps ~ date, dataValueNoNA, sum)
+hist(stepsPerDay$steps, main = "Total number of steps per day", xlab = "Steps per day")
+# calculate mean and median values
+stepsPerDayMean <- mean(stepsPerDay$steps)
+stepsPerDayMedian <- median(stepsPerDay$steps)
+```
+
+###Steps per day Mean:  `r as.integer(stepsPerDayMean)`
+###Steps per day Median:  `r as.integer(stepsPerDayMedian)`
+
+##What is the average daily activity pattern?
+```{r}
+averageStepsByInterval <- tapply(dataValueNoNA$steps, dataValueNoNA$interval, FUN=mean)
+averageStepsByIntervaldf <- data.frame(averageStepsByInterval)
+plot(names(averageStepsByInterval), averageStepsByInterval, type = "l", xlab = "5-minute Interval", 
+    ylab = "Average number of steps taken", main = "Avg number of steps across 5-minute interval")
+
+# Find the index and the maximum value
+maxValueAndInterval <- averageStepsByIntervaldf[which.max(averageStepsByIntervaldf$averageStepsByInterval),]
+maxValue <- maxValueAndInterval[[1]]
+maxInterval <- names(maxValueAndInterval)
+```
+###maxInterval `r as.integer(maxInterval)`
+###maxValue `r maxValue`
+
+##Imputing missing values
+```{r}
+# Find NA Values
+NAvalues <- filter(dataValue,is.na(dataValue$steps))
+numNARows <- nrow(NAvalues)
+head(NAvalues)
+```
+
+### Number of rows wih NA `r numNARows`
+
+##Fill in all of the missing values in the dataset with the mean for that 5-minute interval.
+```{r}
+for (i in 1:nrow(NAvalues)) {
+    NAvalues[i, 1] <- averageStepsByInterval[[toString(NAvalues[i, 3])]]
+}
+head(NAvalues)
+
+filledInData <- dataValue
+filledInData[is.na(dataValue), 1] <- NAvalues[, 1]
+stepsPerDayWithFilledNA <- aggregate(steps ~ date, filledInData, sum)
+hist(stepsPerDayWithFilledNA$steps, main = "Total number of steps per day with filled in NA values", xlab = "Steps per day")
+
+# calculate mean and median values
+stepsPerDayMeanWithFilledNA <- trunc(mean(stepsPerDayWithFilledNA$steps), digits=0)
+stepsPerDayMedianWithFilledNA <- trunc(median(stepsPerDayWithFilledNA$steps), digits=0)
+```
+
+###Steps per day with filled in NA Mean:  `r as.integer(stepsPerDayMeanWithFilledNA)`
+###Steps per day with filled in NA Median:  `r as.integer(stepsPerDayMedianWithFilledNA)`
+
+### For this case, filling in the NA values did not make much difference in the mean or median number of steps per day.
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
+##Are there differences in activity patterns between weekdays and weekends?
+```{r}
+filledInData$day <- "weekday"
+filledInData$day[weekdays(as.Date(filledInData$date), abb=T) %in% c("Sat","Sun")] <- "weekend"
+```
 
 
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+library(lattice)
+meanStepsPerIntervalWithFilledInData <- aggregate(steps ~ interval + day, data=filledInData, FUN="mean")
+xyplot(steps ~ interval | day, data=meanStepsPerIntervalWithFilledInData, type="l", grid=T, layout=c(1,2), ylab="Number of steps", xlab="5-min. intervals", main="Average  5-min. activity for Weekdays and Weekends")
+```
